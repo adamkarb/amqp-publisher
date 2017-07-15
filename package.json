@@ -1,0 +1,28 @@
+{
+  "name": "amqp-publisher",
+  "version": "0.1.0",
+  "description": "Publishing to amqp channels with ease!",
+  "main": "Publisher.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adamkarb/amqp-publisher.git"
+  },
+  "keywords": [
+    "amqp",
+    "rabbitmq",
+    "node",
+    "message-queue"
+  ],
+  "author": "adamkarb",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/adamkarb/amqp-publisher/issues"
+  },
+  "homepage": "https://github.com/adamkarb/amqp-publisher#readme",
+  "dependencies": {
+    "amqplib": "^0.5.1"
+  }
+}
