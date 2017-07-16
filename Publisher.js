@@ -5,15 +5,21 @@ var amqp = require('amqplib');
 
 function Publisher(config) {
 
+    if (!config.url) {
+        throw new Error('No amqp url provided!');
+    }
+
     var self = this;
 
     self.config = {};
-    self.config.url = config.url || throw new Error('No amqp host provided!');
+    self.config.url = config.url || null
     self.config.quiet = config.quiet === true;
-    self.config.name = config.name || 'Publisher';
+    self.config.name = typeof config.name === 'string' ? config.name : 'Publisher';
 
-    amqp.connect(self.url)
+    amqp.connect(self.config.url)
     .then(function(connection) {
+
+        self.log(`:: ${self.config.name} publisher connected to amqp host ::`);
 
         self.connection = connection;
         return self.connection.createChannel();
@@ -27,9 +33,11 @@ function Publisher(config) {
     })
     .catch(function(err) {
 
-        console.error(err);
+        self.error(err);
 
     });
+
+    return self;
 
 }
 
@@ -52,8 +60,8 @@ Publisher.prototype.log = function(info) {
 
     var self = this;
 
-    if (this.quiet === false) {
-        self.log(info);
+    if (self.config.quiet === false) {
+        console.log(info);
     }
 
 };
@@ -62,8 +70,8 @@ Publisher.prototype.error = function(err) {
 
     var self = this;
 
-    if (this.quiet === false) {
-        self.error(err);
+    if (self.config.quiet === false) {
+        console.error(err);
     }
 
 };
