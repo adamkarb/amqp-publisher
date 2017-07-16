@@ -19,8 +19,7 @@ function Publisher(config) {
     amqp.connect(self.config.url)
     .then(function(connection) {
 
-        self.log(`:: ${self.config.name} publisher connected to amqp host ::`);
-
+        self.log('Publisher connected to amqp host');
         self.connection = connection;
         return self.connection.createChannel();
 
@@ -41,7 +40,7 @@ function Publisher(config) {
 
 }
 
-Publisher.prototype.delegateJob = function(queue, data) {
+Publisher.prototype.sendMessage = function(queue, data) {
 
     var self = this;
 
@@ -52,7 +51,9 @@ Publisher.prototype.delegateJob = function(queue, data) {
         return self.channel.sendToQueue(queue, new Buffer(payload));
 
     })
-    .catch(self.error);
+    .catch(function(err) {
+        return self.error(err);
+    });
 
 };
 
@@ -61,7 +62,7 @@ Publisher.prototype.log = function(info) {
     var self = this;
 
     if (self.config.quiet === false) {
-        console.log(info);
+        console.log(`:: [${self.config.name}] ${info} ::`);
     }
 
 };
@@ -71,8 +72,37 @@ Publisher.prototype.error = function(err) {
     var self = this;
 
     if (self.config.quiet === false) {
-        console.error(err);
+        console.error(`[${self.config.name}] ${err}`);
     }
+
+};
+
+Publisher.prototype.closeConnection = function() {
+
+    var self = this;
+    self.log('closing connection');
+    return self.connection.close();
+
+};
+
+Publisher.prototype.closeChannel = function() {
+
+    var self = this;
+    self.log('closing channel');
+    return self.channel.close();
+
+};
+
+Publisher.prototype.shutdown = function() {
+
+    var self = this;
+    return self.closeChannel()
+    .then(function() {
+        return self.closeConnection();
+    })
+    .catch(function(err) {
+        return self.error(err);
+    });
 
 };
 
