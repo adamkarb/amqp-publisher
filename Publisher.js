@@ -5,14 +5,10 @@ var amqp = require('amqplib');
 
 function Publisher(config) {
 
-    if (!config.url) {
-        throw new Error('No amqp url provided!');
-    }
-
     var self = this;
 
     self.config = {};
-    self.config.url = config.url || null
+    self.config.url = config.url || 'amqp://localhost';
     self.config.quiet = config.quiet === true;
     self.config.name = typeof config.name === 'string' ? config.name : 'Publisher';
 
