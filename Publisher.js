@@ -1,6 +1,7 @@
 'use strict';
 
 var amqp = require('amqplib');
+var EventEmitter = require('events');
 // var colors = require('colors');
 
 function Publisher(config) {
@@ -13,6 +14,8 @@ function Publisher(config) {
         name: (typeof config.name === 'string') ? config.name : 'Publisher'
     };
 
+    self.status = new EventEmitter();
+
     amqp.connect(self.config.host)
     .then(function(connection) {
 
@@ -24,6 +27,7 @@ function Publisher(config) {
     .then(function(channel) {
 
         self.channel = channel;
+        self.status.emit('connected');
         return self.channel;
 
     })
@@ -41,16 +45,37 @@ Publisher.prototype.sendMessage = function(queue, data) {
 
     var self = this;
 
-    return self.channel.assertQueue(queue)
-    .then(function(ok) {
+    if (!self.connection) {
 
-        var payload = typeof data === 'string' ? data : JSON.stringify(data);
-        return self.channel.sendToQueue(queue, new Buffer(payload));
+        self.status.once('connected', function() {
 
-    })
-    .catch(function(err) {
-        return self.error(err);
-    });
+            return self.channel.assertQueue(queue)
+            .then(function(ok) {
+
+                var payload = typeof data === 'string' ? data : JSON.stringify(data);
+                return self.channel.sendToQueue(queue, new Buffer(payload));
+
+            })
+            .catch(function(err) {
+                return self.error(err);
+            });
+
+        }.bind(self));
+
+    } else {
+
+        return self.channel.assertQueue(queue)
+        .then(function(ok) {
+
+            var payload = typeof data === 'string' ? data : JSON.stringify(data);
+            return self.channel.sendToQueue(queue, new Buffer(payload));
+
+        })
+        .catch(function(err) {
+            return self.error(err);
+        });
+
+    }
 
 };
 
@@ -78,13 +103,9 @@ Publisher.prototype.closeConnection = function() {
 
     var self = this;
 
-    if (!self.connection) { throw new Error('Cannot close: No connection established.'); }
-
-    self.log('Closing connection...');
-
     return self.connection.close()
     .then(function() {
-        self.log('Connection closed.');
+        self.log('Closing connection...');
     });
 
 };
@@ -93,13 +114,9 @@ Publisher.prototype.closeChannel = function() {
 
     var self = this;
 
-    if (!self.channel) { throw new Error('Cannot close: No channel connected.'); }
-
-    self.log('Closing channel...');
-
     return self.channel.close()
     .then(function() {
-        self.log('Channel closed.');
+        self.log('Closing channel...');
     });
 
 };
@@ -107,13 +124,38 @@ Publisher.prototype.closeChannel = function() {
 Publisher.prototype.shutdown = function() {
 
     var self = this;
-    return self.closeChannel()
-    .then(function() {
-        return self.closeConnection();
-    })
-    .catch(function(err) {
-        return self.error(err);
-    });
+
+    if (!self.connection) {
+
+        self.status.once('connected', function() {
+
+            return self.closeChannel()
+            .then(function() {
+                return self.closeConnection();
+            })
+            .then(function() {
+                self.log('Shutdown complete');
+            })
+            .catch(function(err) {
+                return self.error(err);
+            });
+
+        }.bind(self));
+
+    } else {
+
+        return self.closeChannel()
+        .then(function() {
+            return self.closeConnection();
+        })
+        .then(function() {
+            self.log('Shutdown complete');
+        })
+        .catch(function(err) {
+            return self.error(err);
+        });
+
+    }
 
 };
 
