@@ -151,6 +151,7 @@ Publisher.prototype.shutdown = function() {
 
     if (!self.connection) {
 
+        // TODO: Potentially unshift because a shutdown is priority?
         self.queue.push(shutdown.bind(self));
 
     } else {
