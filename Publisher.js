@@ -1,7 +1,7 @@
 'use strict';
 
 var amqp = require('amqplib');
-var EventEmitter = require('events');
+// var EventEmitter = require('events');
 // var colors = require('colors');
 
 function Publisher(config) {
@@ -14,7 +14,7 @@ function Publisher(config) {
         name: (typeof config.name === 'string') ? config.name : 'Publisher'
     };
 
-    self.status = new EventEmitter();
+    self.queue = [];
 
     amqp.connect(self.config.host)
     .then(function(connection) {
@@ -27,8 +27,12 @@ function Publisher(config) {
     .then(function(channel) {
 
         self.channel = channel;
-        self.status.emit('connected');
         return self.channel;
+
+    })
+    .then(function() {
+
+        self.flushQueue();
 
     })
     .catch(function(err) {
@@ -45,24 +49,7 @@ Publisher.prototype.sendMessage = function(queue, data) {
 
     var self = this;
 
-    if (!self.connection) {
-
-        self.status.once('connected', function() {
-
-            return self.channel.assertQueue(queue)
-            .then(function(ok) {
-
-                var payload = typeof data === 'string' ? data : JSON.stringify(data);
-                return self.channel.sendToQueue(queue, new Buffer(payload));
-
-            })
-            .catch(function(err) {
-                return self.error(err);
-            });
-
-        }.bind(self));
-
-    } else {
+    var send = function() {
 
         return self.channel.assertQueue(queue)
         .then(function(ok) {
@@ -74,6 +61,28 @@ Publisher.prototype.sendMessage = function(queue, data) {
         .catch(function(err) {
             return self.error(err);
         });
+
+    };
+
+    if (!self.connection) {
+
+        self.queue.push(send.bind(self));
+
+    } else {
+
+        return send();
+
+    }
+
+};
+
+Publisher.prototype.flushQueue = function() {
+
+    var self = this;
+
+    for (var i = 0, queueLen = self.queue.length; i < queueLen; i++) {
+
+        self.queue[i]();
 
     }
 
@@ -125,24 +134,7 @@ Publisher.prototype.shutdown = function() {
 
     var self = this;
 
-    if (!self.connection) {
-
-        self.status.once('connected', function() {
-
-            return self.closeChannel()
-            .then(function() {
-                return self.closeConnection();
-            })
-            .then(function() {
-                self.log('Shutdown complete');
-            })
-            .catch(function(err) {
-                return self.error(err);
-            });
-
-        }.bind(self));
-
-    } else {
+    var shutdown = function() {
 
         return self.closeChannel()
         .then(function() {
@@ -154,6 +146,16 @@ Publisher.prototype.shutdown = function() {
         .catch(function(err) {
             return self.error(err);
         });
+
+    };
+
+    if (!self.connection) {
+
+        self.queue.push(shutdown.bind(self));
+
+    } else {
+
+        shutdown();
 
     }
 
